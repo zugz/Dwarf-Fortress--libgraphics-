@@ -831,11 +831,13 @@ bool enabler_inputst::is_recording() {
   return macro_recording;
 }
 
-void enabler_inputst::play_macro() {
-  Time now = SDL_GetTicks();
-  for_each(timeline.begin(), timeline.end(), [&](Event e){
+Time now;
+void maxnow(Event e) {
       now = MAX(now, e.time);
-    });
+}
+void enabler_inputst::play_macro() {
+  now = SDL_GetTicks();
+  for_each(timeline.begin(), timeline.end(), maxnow);
   for (macro::iterator sim = active_macro.begin(); sim != active_macro.end(); ++sim) {
     Event e; e.r = REPEAT_NOT; e.repeats = 0; e.serial = next_serial(); e.time = now;
     for (set<InterfaceKey>::iterator k = sim->begin(); k != sim->end(); ++k) {
