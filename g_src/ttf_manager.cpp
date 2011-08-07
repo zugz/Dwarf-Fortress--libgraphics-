@@ -1,5 +1,6 @@
 #include "ttf_manager.hpp"
 #include "init.h"
+#include "math.h"
 #include <iostream>
 
 using namespace std;
