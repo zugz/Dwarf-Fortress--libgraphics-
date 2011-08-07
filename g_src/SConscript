@@ -53,7 +53,7 @@ if clang:
 env['CPPPATH']=["#g_src/fmodexinclude"]
 env['CCFLAGS']=["-Dunix"]
 env['CXXFLAGS'].append("-std=gnu++0x")
-env['LIBS']=["SDL_image","z","SDL_ttf"]
+env['LIBS']=["SDL_image","z","SDL_ttf","ncursesw"]
 # If there's a library in the libs folder it will get linked over a system one.
 env['LIBPATH']=["#libs"]
 if not M64:

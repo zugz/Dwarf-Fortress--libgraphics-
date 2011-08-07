@@ -62,12 +62,12 @@ public:
       // █ <-- Do you see gaps?
       // █
       // The color can't be bold.
-      wattrset(*stdscr_p, COLOR_PAIR(pair) | A_REVERSE);
-      mvwaddstr(*stdscr_p, y, x, " ");
+      wattrset(stdscr, COLOR_PAIR(pair) | A_REVERSE);
+      mvwaddstr(stdscr, y, x, " ");
     } else {
-      wattrset(*stdscr_p, COLOR_PAIR(pair) | (bold ? A_BOLD : 0));
+      wattrset(stdscr, COLOR_PAIR(pair) | (bold ? A_BOLD : 0));
       wchar_t chs[2] = {charmap[ch],0};
-      mvwaddwstr(*stdscr_p, y, x, chs);
+      mvwaddwstr(stdscr, y, x, chs);
     }
   }
 
@@ -107,13 +107,13 @@ public:
 // character.  Ncurses symbols (left arrow, etc.) are returned as
 // positive values, unicode as negative. Error returns 0.
 static int getch_utf8() {
-  int byte = wgetch(*stdscr_p);
+  int byte = wgetch(stdscr);
   if (byte == ERR) return 0;
   if (byte > 0xff) return byte;
   int len = decode_utf8_predict_length(byte);
   if (!len) return 0;
   string input(len,0); input[0] = byte;
-  for (int i = 1; i < len; i++) input[i] = wgetch(*stdscr_p);
+  for (int i = 1; i < len; i++) input[i] = wgetch(stdscr);
   return -decode_utf8(input);
 }
 
@@ -123,7 +123,7 @@ void enablerst::eventLoop_ncurses() {
   
   while (loopvar) {
     // Check for terminal resize
-    getmaxyx(*stdscr_p, y, x);
+    getmaxyx(stdscr, y, x);
     if (y != oldy || x != oldx) {
       pause_async_loop();
       renderer->resize(x, y);
@@ -170,136 +170,11 @@ void enablerst::eventLoop_ncurses() {
 //// libncursesw stub ////
 
 extern "C" {
-  static void *handle;
-  WINDOW **stdscr_p;
-
-  int COLOR_PAIRS;
-  static int (*_erase)(void);
-  static int (*_wmove)(WINDOW *w, int y, int x);
-  static int (*_waddnstr)(WINDOW *w, const char *s, int n);
-  static int (*_nodelay)(WINDOW *w, bool b);
-  static int (*_refresh)(void);
-  static int (*_wgetch)(WINDOW *w);
-  static int (*_endwin)(void);
-  static WINDOW *(*_initscr)(void);
-  static int (*_raw)(void);
-  static int (*_keypad)(WINDOW *w, bool b);
-  static int (*_noecho)(void);
-  static int (*_set_escdelay)(int delay);
-  static int (*_curs_set)(int s);
-  static int (*_start_color)(void);
-  static int (*_init_pair)(short p, short fg, short bg);
-  static int (*_getmouse)(MEVENT *m);
-  static int (*_waddnwstr)(WINDOW *w, const wchar_t *s, int i);
-
-  static void *dlsym_orexit(const char *symbol, bool actually_exit = true) {
-    void *sym = dlsym(handle, symbol);
-    if (!sym) {
-      printf("Symbol not found: %s\n", symbol);
-      if (actually_exit)
-        exit(EXIT_FAILURE);
-    }
-    return sym;
-  }
-
-  int erase(void) {
-    return _erase();
-  }
-  int wmove(WINDOW *w, int y, int x) {
-    return _wmove(w, y, x);
-  }
-  int waddnstr(WINDOW *w, const char *s, int n) {
-    return _waddnstr(w, s, n);
-  }
-  int nodelay(WINDOW *w, bool b) {
-    return _nodelay(w, b);
-  }
-  int refresh(void) {
-    return _refresh();
-  }
-  int wgetch(WINDOW *w) {
-    return _wgetch(w);
-  }
-  int endwin(void) {
-    return _endwin();
-  }
-  WINDOW *initscr(void) {
-    return _initscr();
-  }
-  int raw(void) {
-    return _raw();
-  }
-  int keypad(WINDOW *w, bool b) {
-    return _keypad(w, b);
-  }
-  int noecho(void) {
-    return _noecho();
-  }
-  int set_escdelay(int delay) {
-    if (_set_escdelay)
-      return _set_escdelay(delay);
-    else
-      return 0;
-  }
-  int curs_set(int s) {
-    return _curs_set(s);
-  }
-  int start_color(void) {
-    return _start_color();
-  }
-  int init_pair(short p, short fg, short bg) {
-    return _init_pair(p, fg, bg);
-  }
-  int getmouse(MEVENT *m) {
-    return _getmouse(m);
-  }
-  int waddnwstr(WINDOW *w, const wchar_t *s, int n) {
-    return _waddnwstr(w, s, n);
-  }
-
   void init_curses() {
     static bool stub_initialized = false;
     // Initialize the stub
     if (!stub_initialized) {
       stub_initialized = true;
-      // We prefer libncursesw, but we'll accept libncurses if we have to
-      handle = dlopen("libncursesw.so.5", RTLD_LAZY);
-      if (handle) goto opened;
-      handle = dlopen("libncursesw.so", RTLD_LAZY);
-      if (handle) goto opened;
-      puts("Didn't find any flavor of libncursesw, attempting libncurses");
-      sleep(5);
-      handle = dlopen("libncurses.so.5", RTLD_LAZY);
-      if (handle) goto opened;
-      handle = dlopen("libncurses.so", RTLD_LAZY);
-      if (handle) goto opened;
-
-    opened:
-      if (!handle) {
-        puts("Unable to open any flavor of libncurses!");
-        exit(EXIT_FAILURE);
-      }
-      // Okay, look up our symbols
-      int *pairs = (int*)dlsym_orexit("COLOR_PAIRS");
-      COLOR_PAIRS = *pairs;
-      stdscr_p = (WINDOW**)dlsym_orexit("stdscr");
-      _erase = (int (*)(void))dlsym_orexit("erase");
-      _wmove = (int (*)(WINDOW *w, int y, int x))dlsym_orexit("wmove");
-      _waddnstr = (int (*)(WINDOW *w, const char *s, int n))dlsym_orexit("waddnstr");
-      _nodelay = (int (*)(WINDOW *w, bool b))dlsym_orexit("nodelay");
-      _refresh = (int (*)(void))dlsym_orexit("refresh");
-      _wgetch = (int (*)(WINDOW *w))dlsym_orexit("wgetch");
-      _endwin = (int (*)(void))dlsym_orexit("endwin");
-      _initscr = (WINDOW *(*)(void))dlsym_orexit("initscr");
-      _raw = (int (*)(void))dlsym_orexit("raw");
-      _keypad = (int (*)(WINDOW *w, bool b))dlsym_orexit("keypad");
-      _noecho = (int (*)(void))dlsym_orexit("noecho");
-      _set_escdelay = (int (*)(int delay))dlsym_orexit("set_escdelay", false);
-      _curs_set = (int (*)(int s))dlsym_orexit("curs_set");
-      _start_color = (int (*)(void))dlsym_orexit("start_color");
-      _init_pair = (int (*)(short p, short fg, short bg))dlsym_orexit("init_pair");
-      _getmouse = (int (*)(MEVENT *m))dlsym_orexit("getmouse");
-      _waddnwstr = (int (*)(WINDOW *w, const wchar_t *s, int i))dlsym_orexit("waddnwstr");
     }
     
     // Initialize curses
@@ -308,8 +183,8 @@ extern "C" {
       initscr();
       raw();
       noecho();
-      keypad(*stdscr_p, true);
-      nodelay(*stdscr_p, true);
+      keypad(stdscr, true);
+      nodelay(stdscr, true);
       set_escdelay(25); // Possible bug
       curs_set(0);
       mmask_t dummy;
